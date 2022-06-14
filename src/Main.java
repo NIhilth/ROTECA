@@ -33,7 +33,12 @@ public class Main {
         Livro.listaLivros.add(livro3);
         Livro.listaLivros.add(livro4);
         Livro.listaLivros.add(livro5);
-        login();
+        try {
+            login();
+        }catch (LoginInvalidoException idiota){
+            System.out.println(idiota.getClass().getSimpleName() + ": " + idiota.getMessage() + "\n");
+            login();
+        }
     }
 
     private static void login() {
@@ -41,7 +46,12 @@ public class Main {
         int escolha = sc.nextInt();
 
         if (escolha == 2) {
-            Pessoa.listaPessoas.add(cadastroPessoa(1));
+            try {
+                Pessoa.listaPessoas.add(cadastroPessoa(1));
+            } catch (OpcaoInvalidaException idiota){
+                System.out.println(idiota.getClass().getSimpleName() + ": " + idiota.getMessage() + "\n");
+                login();
+            }
             System.out.println("Cadastro efetuado com sucesso!");
         }
 
@@ -60,8 +70,7 @@ public class Main {
         }
 
         if (usuario == null) {
-            System.out.println("Email ou senha inválidos!");
-            login();
+            throw new LoginInvalidoException();
         } else {
             System.out.println("Login efetuado com sucesso!");
             menu();
@@ -90,24 +99,23 @@ public class Main {
 
         if (i == 1) {
             int opcao;
-            do {
-                System.out.println("Cargo: \n1 - Autor \n2 - Revisor \n3 - Diretor");
-                opcao = sc.nextInt();
-                switch (opcao) {
-                    case 1:
-                        return new Autor(nome, sobre, cpf, email, genero, senha);
-                    case 2:
-                        return new Revisor(nome, sobre, cpf, email, genero, senha);
-                    case 3:
-                        return new Diretor(nome, sobre, cpf, email, genero, senha);
-                    default:
-                        System.out.println("Opção inválida!");
-                }
-            } while (opcao > 3 || opcao < 1);
+            System.out.println("Cargo: \n1 - Autor \n2 - Revisor \n3 - Diretor");
+            opcao = sc.nextInt();
+            try {
+                return switch (opcao) {
+                    case 1 -> new Autor(nome, sobre, cpf, email, genero, senha);
+                    case 2 -> new Revisor(nome, sobre, cpf, email, genero, senha);
+                    case 3 -> new Diretor(nome, sobre, cpf, email, genero, senha);
+                    default -> throw new OpcaoInvalidaException();
+                };
+            }catch (OpcaoInvalidaException idiota){
+                System.out.println(idiota.getClass().getSimpleName() + ": " + idiota.getMessage() + "\n");
+                cadastroPessoa(i);
+            }
+            return null;
         } else {
             return new Revisor(nome, sobre, cpf, email, genero, senha);
         }
-        return null;
     }
 
     private static void menu() {
@@ -123,44 +131,46 @@ public class Main {
         } else if (opcao == opcoes.length - 1) {
             login();
         } else if (opcao < 1 || opcao > opcoes.length) {
-            System.out.println("Opção inválida!");
-            menu();
-        }
-
-        switch (opcao) {
-            case 1:
-                listarLivros();
-                break;
-            case 2:
-                editarLivros();
-                break;
-            case 3:
-                listarAtividades();
-                System.out.println("Listagem concluída");
-                break;
-            case 4:
-                if (usuario instanceof Autor) {
-                    ((Autor) usuario).listaLivros.add(cadastrarLivro());
-                } else {
-                    Pessoa.listaPessoas.add(cadastroPessoa(2));
-                    System.out.println("Cadastro concluído!");
-                }
-                break;
+            throw new OpcaoInvalidaException();
         }
         menu();
+        try {
+            switch (opcao) {
+                case 1:
+                    listarLivros();
+                    break;
+                case 2:
+                    editarLivros();
+                    break;
+                case 3:
+                    listarAtividades();
+                    System.out.println("Listagem concluída");
+                    break;
+                case 4:
+                    if (usuario instanceof Autor) {
+                        ((Autor) usuario).listaLivros.add(cadastrarLivro());
+                    } else {
+                        Pessoa.listaPessoas.add(cadastroPessoa(2));
+                        System.out.println("Cadastro concluído!");
+                    }
+                    break;
+            }
+        } catch (RuntimeException idiota) {
+            System.out.println(idiota.getClass().getSimpleName() + ": " + idiota.getMessage() + "\n");
+        } finally {
+            menu();
+        }
     }
 
     public static void editarLivros() {
         System.out.println("----- EDIÇÃO DE LIVROS -----");
-        int checar, escolha = -1, status = -1;
+        int checar, escolha = -1;
         if (usuario instanceof Revisor) {
-            do {
-                System.out.println("Quer editar um livro já iniciado a revisão ou começar um novo? \n1 - Continuar uma revisão \n2 - Iniciar nova revisão");
-                escolha = sc.nextInt();
-                if (escolha < 1 || escolha > 2) {
-                    System.out.println("Opção inválida!");
-                }
-            } while (escolha < 1 || escolha > 2);
+            System.out.println("Quer editar um livro já iniciado a revisão ou começar um novo? \n1 - Continuar uma revisão \n2 - Iniciar nova revisão");
+            escolha = sc.nextInt();
+            if (escolha < 1 || escolha > 2) {
+                throw new OpcaoInvalidaException();
+            }
         }
 
         System.out.println("Qual o ISBN desejado?");
@@ -212,8 +222,18 @@ public class Main {
         System.out.println("Quantidade de páginas:");
         int qtdPagina = sc.nextInt();
 
+        if(qtdPagina < 0){
+            throw  new QuantidadeDePaginasInvalidaException();
+        }
+
         System.out.println("ISBN:");
         String isbn = sc.next();
+
+        for(int i = 0; i < Livro.listaLivros.size(); i++){
+            if(Livro.listaLivros.get(i).getISBN().equals(isbn)){
+                throw new LivroExistenteException();
+            }
+        }
 
         return new Livro(((Autor) usuario), titulo, qtdPagina, isbn, 2);
     }
